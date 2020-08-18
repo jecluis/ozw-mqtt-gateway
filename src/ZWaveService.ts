@@ -6,11 +6,15 @@
  * under the terms of the EUROPEAN UNION PUBLIC LICENSE v1.2, as published by
  * the European Comission.
  */
-import ZWave, { NodeInfo, Notification, Value, ControllerState, ControllerError } from 'openzwave-shared';
+import ZWave, {
+	NodeInfo, Notification, Value, ControllerState, ControllerError
+} from 'openzwave-shared';
 import { MqttClient, Packet } from 'mqtt';
 import { Config } from './ConfigService';
 import { Logger } from 'tslog';
-import { EINVAL, ENOENT } from 'constants';
+import { EINVAL, ENOENT, ENOTSUP } from 'constants';
+import { DeviceAddCommand } from './zwave_cmd/DeviceAdd';
+import { DeviceRemoveCommand } from './zwave_cmd/DeviceRemove';
 
 
 // commands we recognize on handling.
@@ -33,7 +37,8 @@ enum ZWaveCommandEnum {
 	ReplicationSend             = 14,
 	CreateButton                = 15,
 	DeleteButton                = 16,
-	NotACommand					= 17, // increase on additional commands.
+	CancelCommand				= 17,
+	NotACommand					= 18, // increase on additional commands.
 }
 
 
@@ -198,9 +203,35 @@ export class ZWaveService {
 		this._handleMQTTCommand(data);
 	}
 
+	// handle command
 	private _handleMQTTCommand(data: {[id: string]: string}): void {
 		let logstr = "handle command request";
 		info(logstr, `handling command ${data['command']}`);
+
+		let cmd = +data['command'];
+		switch (cmd) {
+			case ZWaveCommandEnum.AddDevice:
+				new DeviceAddCommand(this.zwave).doCommand();
+				break;
+			case ZWaveCommandEnum.RemoveDevice:
+				new DeviceRemoveCommand(this.zwave).doCommand();
+				break;
+			case ZWaveCommandEnum.CancelCommand:
+				this.zwave.cancelControllerCommand();
+				break;
+			default:
+				this.publish("action/return", {
+					rc: -ENOTSUP, // not implemented
+					str: "command not implemented",
+					nonce: data['nonce']
+				});
+				return;
+		}
+		this.publish("action/return", {
+			rc: 0,
+			str: "command executing",
+			nonce: data['nonce']
+		});
 	}
 
 
@@ -322,7 +353,7 @@ export class ZWaveService {
 						   notification: ControllerError, message: string,
 						   command: number) {
 		info("command", `node: ${nodeId}, state: ${ControllerState[state]},`,
-			 `notification: ${ControllerError[notification]},`,
+			 `notification: ${notification},`,
 			 `message: ${message}, command: ${command}`);
 		this.publish("command", {
 			id: nodeId,
