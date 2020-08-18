@@ -7,9 +7,34 @@
  * the European Comission.
  */
 import ZWave, { NodeInfo, Notification, Value, ControllerState, ControllerError } from 'openzwave-shared';
-import { MqttClient } from 'mqtt';
+import { MqttClient, Packet } from 'mqtt';
 import { Config } from './ConfigService';
 import { Logger } from 'tslog';
+import { EINVAL, ENOENT } from 'constants';
+
+
+// commands we recognize on handling.
+//
+enum ZWaveCommandEnum {
+	None                        = 0,
+	AddDevice                   = 1,
+	CreateNewPrimary            = 2,
+	ReceiveConfiguration        = 3,
+	RemoveDevice                = 4,
+	RemoveFailedNode            = 5,
+	HasNodeFailed               = 6,
+	ReplaceFailedNode           = 7,
+	TransferPrimaryRole         = 8,
+	RequestNetworkUpdate        = 9,
+	RequestNodeNeighborUpdate   = 10,
+	AssignReturnRoute           = 11,
+	DeleteAllReturnRoutes       = 12,
+	SendNodeInformation         = 13,
+	ReplicationSend             = 14,
+	CreateButton                = 15,
+	DeleteButton                = 16,
+	NotACommand					= 17, // increase on additional commands.
+}
 
 
 let logger: Logger = new Logger({name: 'zwave'});
@@ -51,8 +76,8 @@ export class ZWaveService {
 		// here, but we're going with the status quo for now.
 		logger.info("startup...");
 		this.zwave.connect(this._config.zwave.device);
-		this._setupHandlers();
 		this.ns = this._config.zwave.namespace;
+		this._setupHandlers();
 	}
 
 	shutdown(): void {
@@ -110,8 +135,78 @@ export class ZWaveService {
 
 		this.zwave.on("scan complete", this._handleScanCompleted.bind(this));
 		this.zwave.on("controller command", this._handleCommand.bind(this));
+
+		this._mqtt.on("message", this._handleMQTTMessage.bind(this));
+		this._mqtt.subscribe(this.ns+'/action/request');
 	}
 
+	/*
+	 * MQTT HANDLERS
+	 *
+	 * These shall handle the requests from our users. A request is assumed to
+	 * be a command that is sent to the NS/action/request topic, with NS being
+	 * our namespace. Results shall be published to the NS/action/return topic.
+	 * 
+	 * At the moment, there is no guarantee the commands will execute. In the
+	 * future, the universe permitting, we would enjoy having an additional
+	 * return, "complete", stating the request has been completed, and then
+	 * rename 'return' to 'acknowledged'. For now we will stick to a dumb
+	 * gateway that will pretend to know nothing about the inner-workings of the
+	 * openzwave library being used.
+	 */
+	private wantsMQTTMessage(topic: string): boolean {
+		return (topic === this.ns+'/action/request');
+	}
+
+	private _handleMQTTMessage(topic: string, payload: Buffer, packet: Packet) {
+		info("mqtt handler", "received message, topic:", topic, ", payload: ", payload);
+		if (!this.wantsMQTTMessage(topic)) {
+			return;
+		}
+		let data = JSON.parse(payload.toString());
+		info("mqtt handler", "data: ", data);
+
+		if (!('nonce' in data)) {
+			info("mqtt handler", "nonce not present; drop");
+			// there is no way to reply to this command, drop.
+			return;
+		}
+
+		if (!('command' in data)) {
+			// publish error
+			info("mqtt handler", "no command supplied; error");
+			this.publish("action/return", {
+				rc: -EINVAL,
+				str: "no command supplied",
+				nonce: data['nonce']
+			});
+			return;
+		}
+
+		let cmd: number = +data['command'];
+		if (cmd < ZWaveCommandEnum.None || cmd > ZWaveCommandEnum.NotACommand) {
+			info("mqtt handler", `unrecognized command '${cmd}'; error`);
+			this.publish("action/return", {
+				rc: -ENOENT,
+				str: "unrecognized command",
+				nonce: data['nonce']
+			});
+			return;
+		}
+
+		info("mqtt handler", `handling command '${cmd}`);
+		this._handleMQTTCommand(data);
+	}
+
+	private _handleMQTTCommand(data: {[id: string]: string}): void {
+		let logstr = "handle command request";
+		info(logstr, `handling command ${data['command']}`);
+	}
+
+
+	/*
+	 * DRIVER HANDLERS
+	 */
 	private _handleDriverConnected(version: string) {
 		info("driver", "connected");
 		this.is_driver_connected = true;
