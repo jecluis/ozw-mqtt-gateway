@@ -116,7 +116,6 @@ mqtt_client = mqtt.connect(mqtt_server_uri);
 mqtt_client.on("connect", () => {
 	logger.info(`mqtt client: connected to ${mqtt_server_uri}`);
 	mqtt_client_ready = true;
-	mqtt_client.publish('test', "test message");
 });
 
 mqtt_client.on("error", (error) => {
@@ -124,16 +123,26 @@ mqtt_client.on("error", (error) => {
 	process.exit(1);
 });
 
+mqtt_client.on("message", (topic, payload, packet) => {
+	logger.info(`mqtt client: message on '${topic}', payload: `, payload);
+})
 
-function shutdown() {
+
+async function shutdown() {
+	logger.info("shutting down...");
 	if (zwave) {
 		zwave.shutdown();
+	}
+
+	if (mqtt_client) {
+		mqtt_client.end();
 	}
 
 	// sleep for a wee little bit to allow the zwave library to coalesce.
 	// reason: we've seen quite a few crashes if we don't give it time to do its
 	// thing, and, so far, we haven't gotten into debugging it. Let's be lazy.
-	sleep(2000); // 2 seconds should be enough.
+	await sleep(2000); // 2 seconds should be enough.
+	process.exit(0);
 }
 
 let keep_looping: boolean = true;
@@ -174,12 +183,3 @@ async function main() {
 }
 
 main();
-
-
-mqtt_client.on("message", (topic, message) => {
-	console.log("from mqtt: topic = " + topic + ", message: ", message.toString());
-	mqtt_client.end();
-});
-
-// http_server.listen(31337);
-console.log("foo");
