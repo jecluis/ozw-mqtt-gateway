@@ -12,6 +12,7 @@ import { ConfigService, Config } from './ConfigService';
 import { Logger } from 'tslog';
 import { ENOENT, EINVAL } from 'constants';
 import fs from 'fs';
+import { ZWaveService } from './ZWaveService';
 
 
 let logger: Logger = new Logger({name: 'ozw-mqtt-gateway'});
@@ -41,24 +42,17 @@ let config: Config = configSvc.getConfig();
  */
 let zwave_device: string = "";
 
-// even though we are creating the ZWave connector, we are not going to start it
-// unless we also have the mqtt mqtt_client setup, and definitely not if we don't
-// have a zwave device configured.
-let zwave: ZWave = new ZWave({
-	UserPath: './zwave',
-	ConfigPath: './zwave/db',
-	ConsoleOutput: false,
-	LogFileName: 'ozw-mqtt-gateway.zwave.log'
-});
-
-
 function findDevice(): string {
 	let available_devices: string[] = configSvc.getAvailableDevices();
 	logger.info("\navailable devices: ", available_devices);
 	if (available_devices.length == 0) {
 		return "";
 	}
-	return available_devices[0];
+	let device: string = available_devices[0];
+	if (!device.startsWith('/dev/')) {
+		device = '/dev/'+device;
+	}
+	return device;
 }
 
 if (!config.zwave.device) {
@@ -75,6 +69,16 @@ if (!config.zwave.device) {
 		process.exit(ENOENT);
 	}
 }
+
+// ensure our config has the zwave device set. This value might have very well
+// have come from the config itself, but we don't particularly care because it
+// might have not.
+config.zwave.device = zwave_device;
+
+// we are only going to setup our zwave service once we got everything in place.
+// There is little point in having the zwave service if we don't have an mqtt
+// broker to send the events to.
+let zwave: ZWaveService;
 
 /*
  * Configure MQTT mqtt_client
@@ -112,6 +116,7 @@ mqtt_client = mqtt.connect(mqtt_server_uri);
 mqtt_client.on("connect", () => {
 	logger.info(`mqtt client: connected to ${mqtt_server_uri}`);
 	mqtt_client_ready = true;
+	mqtt_client.publish('test', "test message");
 });
 
 mqtt_client.on("error", (error) => {
@@ -122,8 +127,13 @@ mqtt_client.on("error", (error) => {
 
 function shutdown() {
 	if (zwave) {
-		zwave.disconnect(zwave_device);
+		zwave.shutdown();
 	}
+
+	// sleep for a wee little bit to allow the zwave library to coalesce.
+	// reason: we've seen quite a few crashes if we don't give it time to do its
+	// thing, and, so far, we haven't gotten into debugging it. Let's be lazy.
+	sleep(2000); // 2 seconds should be enough.
 }
 
 let keep_looping: boolean = true;
@@ -133,6 +143,9 @@ process.on('SIGINT', () => {
 });
 
 function startup() {
+	// setup zwave service
+	zwave = ZWaveService.getInstance(mqtt_client, config);
+	zwave.startup();
 }
 
 
