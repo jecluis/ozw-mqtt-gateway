@@ -8,7 +8,7 @@
  */
 import { ControllerState } from 'openzwave-shared';
 import { Logger } from 'tslog';
-import { CommandState } from './types';
+import { CommandState, CommandEnum } from './types';
 import { ZWaveService } from '../ZWaveService';
 
 
@@ -27,6 +27,10 @@ export abstract class Command {
 	abstract doCommand(): void;
 	abstract getCmdName(): string;
 
+	getCmdId(): number {
+		return this.cmd_id;
+	}
+
 	hasFinished(): boolean {
 		switch (this.state) {
 			case ControllerState.Cancel:
@@ -38,30 +42,22 @@ export abstract class Command {
 		return false;
 	}
 
-	cancel(): void {
+	cancel(nonce?: string): void {
 		logger.info(`cancelling command '${this.getCmdName()}'`);
 		this.svc.getDriver().cancelControllerCommand();
+		// we could try checking the sender and ensure this cancel is for our
+		// operation, but we may not have a good way to do that -- the client
+		// who issued the operation initially may not be the same cancelling it,
+		// and we can't assume our users are stateful anyway.
+		let action: string = this._getActionStateStr(ControllerState.Cancel);
+		this.svc.publish(action, {
+			rc: 0,
+			str: "cancelled",
+			nonce: (!!nonce ? nonce : "")
+		});
 	}
 
-	getCmdId(): number {
-		return this.cmd_id;
-	}
-
-	handleStateChange(state: CommandState): void {
-		if (state.command != this.cmd_id) {
-			logger.info("dropping unknown command");
-			return;
-		}
-		if (state.state < this.state &&
-			(state.state !== ControllerState.Cancel &&
-			 state.state !== ControllerState.Error)) {
-			logger.error("going back in time?");
-		} else if (state.state == this.state) {
-			// same state, drop it.
-			return;
-		}
-		this.state = state.state;
-
+	private _getActionStateStr(s: number): string {
 		let action: string = "action/";
 		switch (this.state) {
 			case ControllerState.InProgress:
@@ -89,10 +85,48 @@ export abstract class Command {
 				action += "unknown";
 				break;
 		}
+		return action;
+	}
 
+	handleStateChange(state: CommandState): void {
+		if (state.command != this.cmd_id) {
+			logger.info("dropping unknown command");
+			return;
+		}
+		if (state.state < this.state &&
+			(state.state !== ControllerState.Cancel &&
+			 state.state !== ControllerState.Error)) {
+			logger.error("going back in time?");
+		} else if (state.state == this.state) {
+			// same state, drop it.
+			return;
+		}
+		this.state = state.state;
+		let action = this._getActionStateStr(state.state);
 		this.svc.publish(action, {
 			rc: 0,
 			str: state.state,
+			nonce: this.nonce
+		});
+	}
+}
+
+export class CancelCommand extends Command {
+
+	constructor(protected svc: ZWaveService, protected nonce: string) {
+		super(svc, CommandEnum.CancelCommand , nonce);
+	}
+
+	getCmdName(): string {
+		return "cancel-cmd";
+	}
+
+	doCommand(): void {
+		// we are not actually doing anything besides letting the user know that
+		// it has been completed.
+		this.svc.publish("action/completed", {
+			rc: 0,
+			str: "cancelled",
 			nonce: this.nonce
 		});
 	}

@@ -7,7 +7,7 @@
  * the European Comission.
  */
 
-import { Command } from "./Command";
+import { Command, CancelCommand } from "./Command";
 import { CommandState } from "./types";
 import { Logger } from 'tslog';
 
@@ -64,11 +64,9 @@ export class CommandQueue {
 		this.current?.doCommand(); // this will never be undefined, but :shrug:
 	}
 
-	cancelCommand(): void {
+	cancelCommand(nonce?: string): void {
 		if (this.current) {
-			this.current.cancel();
-			this.current = undefined;
-			this.next();
+			this.current.cancel(nonce);
 		}
 	}
 
@@ -80,5 +78,8 @@ export class CommandQueue {
 			return; // we are not handling this command.
 		}
 		this.current.handleStateChange(state);
+		if (this.current.hasFinished()) {
+			this.next();
+		}
 	}
 }

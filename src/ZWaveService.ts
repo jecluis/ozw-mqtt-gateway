@@ -16,7 +16,7 @@ import { EINVAL, ENOENT, ENOTSUP } from 'constants';
 import { DeviceAddCommand } from './zwave_cmd/DeviceAdd';
 import { DeviceRemoveCommand } from './zwave_cmd/DeviceRemove';
 import { CommandQueue } from './zwave_cmd/CommandQueue';
-import { Command } from './zwave_cmd/Command';
+import { Command, CancelCommand } from './zwave_cmd/Command';
 import { CommandEnum, CommandState } from './zwave_cmd/types';
 
 
@@ -203,7 +203,8 @@ export class ZWaveService {
 				zwave_cmd = new DeviceRemoveCommand(this, nonce);
 				break;
 			case CommandEnum.CancelCommand:
-				this.command_queue.cancelCommand();
+				zwave_cmd = new CancelCommand(this, nonce);
+				this.command_queue.cancelCommand(nonce);
 				break;
 			default:
 				this.publish("action/return", {
