@@ -49,7 +49,7 @@ def main():
 		'nonce': 'bbb'
 	}))
 
-	time.sleep(60.0)
+	time.sleep(20.0)
 	print("cancel last command")
 	client.publish("ozw/action/request", json.dumps({
 		'command': 17,
