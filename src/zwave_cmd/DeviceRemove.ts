@@ -6,16 +6,19 @@
  * under the terms of the EUROPEAN UNION PUBLIC LICENSE v1.2, as published by
  * the European Comission.
  */
-import ZWave from 'openzwave-shared';
 import { Logger } from 'tslog';
 import { Command } from './Command';
+import { CommandEnum, CommandState } from './types';
+import { ZWaveService } from '../ZWaveService';
+
 
 let logger: Logger = new Logger({name: 'device-rm'});
 
+
 export class DeviceRemoveCommand extends Command {
 
-	constructor(protected zwave: ZWave) {
-		super(zwave);
+	constructor(protected svc: ZWaveService, protected nonce: string) {
+		super(svc, CommandEnum.RemoveDevice, nonce);
 	}
 
 	getCmdName(): string {
@@ -24,6 +27,6 @@ export class DeviceRemoveCommand extends Command {
 
 	doCommand(): void {
 		logger.info("removing node");
-		this.zwave.removeNode();
+		this.svc.getDriver().removeNode();
 	}
 }

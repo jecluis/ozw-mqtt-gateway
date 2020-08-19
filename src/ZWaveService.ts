@@ -15,31 +15,9 @@ import { Logger } from 'tslog';
 import { EINVAL, ENOENT, ENOTSUP } from 'constants';
 import { DeviceAddCommand } from './zwave_cmd/DeviceAdd';
 import { DeviceRemoveCommand } from './zwave_cmd/DeviceRemove';
-
-
-// commands we recognize on handling.
-//
-enum ZWaveCommandEnum {
-	None                        = 0,
-	AddDevice                   = 1,
-	CreateNewPrimary            = 2,
-	ReceiveConfiguration        = 3,
-	RemoveDevice                = 4,
-	RemoveFailedNode            = 5,
-	HasNodeFailed               = 6,
-	ReplaceFailedNode           = 7,
-	TransferPrimaryRole         = 8,
-	RequestNetworkUpdate        = 9,
-	RequestNodeNeighborUpdate   = 10,
-	AssignReturnRoute           = 11,
-	DeleteAllReturnRoutes       = 12,
-	SendNodeInformation         = 13,
-	ReplicationSend             = 14,
-	CreateButton                = 15,
-	DeleteButton                = 16,
-	CancelCommand				= 17,
-	NotACommand					= 18, // increase on additional commands.
-}
+import { CommandQueue } from './zwave_cmd/CommandQueue';
+import { Command } from './zwave_cmd/Command';
+import { CommandEnum, CommandState } from './zwave_cmd/types';
 
 
 let logger: Logger = new Logger({name: 'zwave'});
@@ -72,6 +50,8 @@ export class ZWaveService {
 	private is_driver_connected: boolean = false;
 	private is_driver_ready: boolean = false;
 	private is_driver_failed: boolean = false;
+
+	private command_queue: CommandQueue = CommandQueue.getInstance();
 
 	startup(): void {
 		// attempt to connect device. We are expecting this to work, given we
@@ -108,10 +88,14 @@ export class ZWaveService {
 		return this.is_driver_failed;
 	}
 
-	private publish(who: string, what: any) {
+	publish(who: string, what: any) {
 		let ns = this.ns + '/' + who;
 		let payload = JSON.stringify({ payload: what });
 		this._mqtt.publish(ns, payload);
+	}
+
+	getDriver(): ZWave {
+		return this.zwave;
 	}
 
 	private _setupHandlers(): void {
@@ -189,7 +173,7 @@ export class ZWaveService {
 		}
 
 		let cmd: number = +data['command'];
-		if (cmd < ZWaveCommandEnum.None || cmd > ZWaveCommandEnum.NotACommand) {
+		if (cmd < CommandEnum.None || cmd > CommandEnum.NotACommand) {
 			info("mqtt handler", `unrecognized command '${cmd}'; error`);
 			this.publish("action/return", {
 				rc: -ENOENT,
@@ -208,16 +192,18 @@ export class ZWaveService {
 		let logstr = "handle command request";
 		info(logstr, `handling command ${data['command']}`);
 
-		let cmd = +data['command'];
-		switch (cmd) {
-			case ZWaveCommandEnum.AddDevice:
-				new DeviceAddCommand(this.zwave).doCommand();
+		let cmd_id = +data['command'];
+		let zwave_cmd: Command | undefined = undefined;
+		let nonce: string = data['nonce'];
+		switch (cmd_id) {
+			case CommandEnum.AddDevice:
+				zwave_cmd = new DeviceAddCommand(this, nonce);
 				break;
-			case ZWaveCommandEnum.RemoveDevice:
-				new DeviceRemoveCommand(this.zwave).doCommand();
+			case CommandEnum.RemoveDevice:
+				zwave_cmd = new DeviceRemoveCommand(this, nonce);
 				break;
-			case ZWaveCommandEnum.CancelCommand:
-				this.zwave.cancelControllerCommand();
+			case CommandEnum.CancelCommand:
+				this.command_queue.cancelCommand();
 				break;
 			default:
 				this.publish("action/return", {
@@ -227,7 +213,11 @@ export class ZWaveService {
 				});
 				return;
 		}
-		this.publish("action/return", {
+		if (zwave_cmd) {
+			this.command_queue.add(zwave_cmd);
+			this.command_queue.next();
+		}
+		this.publish("action/acknowledged", {
 			rc: 0,
 			str: "command executing",
 			nonce: data['nonce']
@@ -355,13 +345,15 @@ export class ZWaveService {
 		info("command", `node: ${nodeId}, state: ${ControllerState[state]},`,
 			 `notification: ${notification},`,
 			 `message: ${message}, command: ${command}`);
-		this.publish("command", {
+		let cmd_state: CommandState = {
 			id: nodeId,
 			state: state,
 			state_str: ControllerState[state],
 			notification: notification,
 			message: message,
 			command: command
-		});
+		};
+		this.publish("command", cmd_state);
+		this.command_queue.handleState(cmd_state);
 	}
 }
