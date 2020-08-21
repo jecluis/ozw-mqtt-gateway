@@ -19,6 +19,7 @@ import { CommandQueue } from './zwave_cmd/CommandQueue';
 import { Command, CancelCommand } from './zwave_cmd/Command';
 import { CommandEnum, CommandState } from './zwave_cmd/types';
 import { DataStore } from './DataStore';
+import { GetLatestState } from './zwave_cmd/State';
 
 
 let logger: Logger = new Logger({name: 'zwave'});
@@ -211,6 +212,9 @@ export class ZWaveService {
 			case CommandEnum.CancelCommand:
 				zwave_cmd = new CancelCommand(this, nonce);
 				this.command_queue.cancelCommand(nonce);
+				break;
+			case CommandEnum.GetLatestState:
+				zwave_cmd = new GetLatestState(this, nonce);
 				break;
 			default:
 				this.publish("action/return", {

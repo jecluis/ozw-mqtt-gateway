@@ -30,7 +30,8 @@ export enum CommandEnum {
 	CreateButton                = 15,
 	DeleteButton                = 16,
 	CancelCommand				= 17,
-	NotACommand					= 18, // increase on additional commands.
+	GetLatestState				= 18,
+	NotACommand					= 19, // increase on additional commands.
 }
 
 export interface CommandState {
