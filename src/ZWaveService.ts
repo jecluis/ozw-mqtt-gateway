@@ -301,10 +301,20 @@ export class ZWaveService {
 	 */
 	private _handleValueAdded(nodeId: number, cls: number, value: Value) {
 		info("value add", `node ${nodeId}, cls: ${cls}, value:`, value)
+		this.publish("value/add", {
+			id: nodeId,
+			class: cls,
+			value: value
+		});
 	}
 
 	private _handleValueChanged(nodeId: number, cls: number, value: Value) {
 		info("value changed", `node: ${nodeId}, cls: ${cls}, value:`, value);
+		this.publish("value/change", {
+			id: nodeId,
+			class: cls,
+			value: value
+		});
 	}
 
 	/*
@@ -319,6 +329,11 @@ export class ZWaveService {
 
 	private _handleValueRemoved(nodeId: number, cls: number, idx: number) {
 		info("value removed", `node: ${nodeId}, cls: ${cls}, idx: ${idx}`);
+		this.publish("value/remove", {
+			id: nodeId,
+			class: cls,
+			index: idx
+		});
 	}
 
 	/*
@@ -364,7 +379,7 @@ export class ZWaveService {
 			message: message,
 			command: command
 		};
-		this.publish("command", cmd_state);
+		this.publish("controller/command", cmd_state);
 		this.command_queue.handleState(cmd_state);
 	}
 }
