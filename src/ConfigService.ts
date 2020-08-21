@@ -91,3 +91,28 @@ export class ConfigService {
 	}
 
 }
+
+export class TraceLogger {
+
+	private static instance: TraceLogger;
+
+	private path: string = '.';
+	private traceid: string;
+	private filepath: string;
+
+	private constructor(tracename: string) {
+		this.traceid = new Date().toISOString();
+		this.filepath = this.path+'/'+tracename+'-'+this.traceid+'.log';
+	}
+
+	static getInstance(tracename: string): TraceLogger {
+		if (!TraceLogger.instance) {
+			TraceLogger.instance = new TraceLogger(tracename);
+		}
+		return TraceLogger.instance;
+	}
+
+	trace(tracestr: string) {
+		fs.appendFileSync(this.filepath, tracestr+'\n');
+	}
+}
