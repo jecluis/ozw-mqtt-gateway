@@ -118,7 +118,7 @@ export class ZWaveService {
 
 		this.zwave.on("value added", this._handleValueAdded.bind(this));
 		this.zwave.on("value changed", this._handleValueChanged.bind(this));
-		this.zwave.on("value refreshed", this._handleValueRefreshed.bind(this));
+		this.zwave.on("value refreshed", this._handleValueChanged.bind(this));
 		this.zwave.on("value removed", this._handleValueRemoved.bind(this));
 
 		this.zwave.on("user alert", this._handleUserAlert.bind(this));
@@ -307,9 +307,15 @@ export class ZWaveService {
 		info("value changed", `node: ${nodeId}, cls: ${cls}, value:`, value);
 	}
 
+	/*
+	 * we are uncertain whether, in practice, there's a relevant difference
+	 * between 'changed' and refreshed, so we are going to make them act
+	 * essentially the same.
+	 *
 	private _handleValueRefreshed(nodeId: number, cls: number, value: Value) {
 		info("value refreshed", `node: ${nodeId}, cls: ${cls}, value:`, value);
 	}
+	*/
 
 	private _handleValueRemoved(nodeId: number, cls: number, idx: number) {
 		info("value removed", `node: ${nodeId}, cls: ${cls}, idx: ${idx}`);
