@@ -10,7 +10,7 @@ import ZWave, {
 	NodeInfo, Notification, Value, ControllerState, ControllerError
 } from 'openzwave-shared';
 import { MqttClient, Packet } from 'mqtt';
-import { Config } from './ConfigService';
+import { Config, TraceLogger } from './ConfigService';
 import { Logger } from 'tslog';
 import { EINVAL, ENOENT, ENOTSUP } from 'constants';
 import { DeviceAddCommand } from './zwave_cmd/DeviceAdd';
@@ -50,8 +50,9 @@ export class ZWaveService {
 	private is_driver_connected: boolean = false;
 	private is_driver_ready: boolean = false;
 	private is_driver_failed: boolean = false;
-
 	private command_queue: CommandQueue = CommandQueue.getInstance();
+
+	private tracelogger: TraceLogger = TraceLogger.getInstance('zwavemqtt');
 
 	startup(): void {
 		// attempt to connect device. We are expecting this to work, given we
@@ -88,9 +89,12 @@ export class ZWaveService {
 		return this.is_driver_failed;
 	}
 
-	publish(who: string, what: any) {
+	publish(who: string, what: any): void {
 		let ns = this.ns + '/' + who;
 		let payload = JSON.stringify({ payload: what });
+
+		let logstr = JSON.stringify({topic: ns, payload: what});
+		this.tracelogger.trace(logstr);
 		this._mqtt.publish(ns, payload);
 	}
 
