@@ -31,12 +31,12 @@ export class CommandQueue {
 
 	add(cmd: Command): void {
 		logger.info(`adding command (id '${cmd.getCmdId()}') to queue`);
-		if (!this.current) {
-			this.current = cmd;
-			this.current.doCommand();
-		} else {
-			this.queue.push(cmd);
-		}
+		// if (!this.current) {
+		// 	this.current = cmd;
+		// 	this.current.doCommand();
+		// } else {
+		this.queue.push(cmd);
+		// }
 		logger.info(`queue length: ${this.queue.length}`);
 	}
 
@@ -70,12 +70,24 @@ export class CommandQueue {
 		}
 	}
 
+	/* There is a very big problem with this function: it assumes there's only
+	 * one single command running at any point in time. However, we may have
+	 * more commands running, at different stages. A perfect example of that is
+	 * cancelling a command -- there is an on-going command, and yet we are
+	 * issuing a cancel command, and there will be state to handle from both.
+	 * 
+	 * However, we do end up serializing all requests in the queue, and cancel
+	 * is a special case handled in a different manner. But it still stands that
+	 * this function sucks. Also, it's ugly.
+	 */
 	handleState(state: CommandState): void {
-		if (!this.current) {
-			return; // ignore, we're not running a command.
-		}
-		if (this.current.getCmdId() != state.command) {
+		if (this.current && this.current.getCmdId() != state.command) {
 			return; // we are not handling this command.
+		} else if (!this.current) {
+			if (this.queue.length > 0) {
+				this.next();
+			}
+			return;
 		}
 		this.current.handleStateChange(state);
 		if (this.current.hasFinished()) {

@@ -222,13 +222,13 @@ export class ZWaveService {
 		}
 		if (zwave_cmd) {
 			this.command_queue.add(zwave_cmd);
-			this.command_queue.next();
 		}
 		this.publish("action/acknowledged", {
 			rc: 0,
 			str: "command executing",
 			nonce: data['nonce']
 		});
+		this.command_queue.next();
 	}
 
 
