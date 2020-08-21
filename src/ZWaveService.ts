@@ -18,6 +18,7 @@ import { DeviceRemoveCommand } from './zwave_cmd/DeviceRemove';
 import { CommandQueue } from './zwave_cmd/CommandQueue';
 import { Command, CancelCommand } from './zwave_cmd/Command';
 import { CommandEnum, CommandState } from './zwave_cmd/types';
+import { DataStore } from './DataStore';
 
 
 let logger: Logger = new Logger({name: 'zwave'});
@@ -51,6 +52,7 @@ export class ZWaveService {
 	private is_driver_ready: boolean = false;
 	private is_driver_failed: boolean = false;
 	private command_queue: CommandQueue = CommandQueue.getInstance();
+	private datastore: DataStore = DataStore.getInstance();
 
 	private tracelogger: TraceLogger = TraceLogger.getInstance('zwavemqtt');
 
@@ -269,31 +271,39 @@ export class ZWaveService {
 	private _handleNodeAdd(nodeId: number) {
 		info("node add", `node ${nodeId}`);
 		this.publish("node/add", {id: nodeId});
+		this.datastore.addNode(nodeId);
 	}
 
 	private _handleNodeRemove(nodeId: number) {
 		info("node remove", `node ${nodeId}`);
 		this.publish("node/rm", {id: nodeId});
+		this.datastore.rmNode(nodeId);
 	}
 
 	private _handleNodeReady(nodeId: number, nodeInfo: NodeInfo) {
 		info("node ready", `node ${nodeId}, info:`, nodeInfo);
 		this.publish("node/ready", {id: nodeId, info: nodeInfo});
+		this.datastore.setInfo(nodeId, nodeInfo);
+		this.datastore.setReady(nodeId);
 	}
 
 	private _handleNodeNaming(nodeId: number, nodeInfo: NodeInfo) {
 		info("node naming", `node ${nodeId}, info:`, nodeInfo);
 		this.publish("node/naming", {id: nodeId, info: nodeInfo});
+		this.datastore.setInfo(nodeId, nodeInfo);
 	}
 
 	private _handleNodeAvailable(nodeId: number, nodeInfo: NodeInfo) {
 		info("node available", `node ${nodeId}, info:`, nodeInfo);
 		this.publish("node/available", {id: nodeInfo, info: nodeInfo});
+		this.datastore.setInfo(nodeId, nodeInfo);
+		this.datastore.setAvailable(nodeId);
 	}
 
 	private _handleNodeReset(nodeId: number) {
 		info("node reset", `node ${nodeId}`);
 		this.publish("node/reset", {id: nodeId});
+		// no clue what to do about this one
 	}
 
 	/*
@@ -306,6 +316,7 @@ export class ZWaveService {
 			class: cls,
 			value: value
 		});
+		this.datastore.addValue(nodeId, cls, value);
 	}
 
 	private _handleValueChanged(nodeId: number, cls: number, value: Value) {
@@ -315,6 +326,7 @@ export class ZWaveService {
 			class: cls,
 			value: value
 		});
+		this.datastore.setValue(nodeId, cls, value);
 	}
 
 	/*
@@ -327,13 +339,16 @@ export class ZWaveService {
 	}
 	*/
 
-	private _handleValueRemoved(nodeId: number, cls: number, idx: number) {
-		info("value removed", `node: ${nodeId}, cls: ${cls}, idx: ${idx}`);
+	private _handleValueRemoved(nodeId: number, cls: number,
+								inst: number, idx: number) {
+		info("value removed", `node: ${nodeId}, cls: ${cls}, inst: ${inst} idx: ${idx}`);
 		this.publish("value/remove", {
 			id: nodeId,
 			class: cls,
+			instance: inst,
 			index: idx
 		});
+		this.datastore.rmValue(nodeId, cls, inst, idx);
 	}
 
 	/*
