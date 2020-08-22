@@ -66,7 +66,7 @@ export class ZWaveConfigService {
 		this.mqtt.on("message", this._handleMessage.bind(this));
 		this.mqtt.on("connect", () => {
 			logger.info("zwave config connected to mqtt broker");
-			this.mqtt?.subscribe("ozw-mqtt-gateway/config/zwave");
+			this.mqtt?.subscribe("ozw-mqtt-gateway/config/zwave/#");
 		});
 	}
 
