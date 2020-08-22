@@ -20,6 +20,7 @@ import { Command, CancelCommand } from './zwave_cmd/Command';
 import { CommandEnum, CommandState } from './zwave_cmd/types';
 import { DataStore } from './DataStore';
 import { GetLatestState } from './zwave_cmd/State';
+import { ZWaveConfigItem, ZWaveConfigService } from './ZWaveConfigService';
 
 
 let logger: Logger = new Logger({name: 'zwave'});
@@ -31,7 +32,7 @@ function info(where: string, ...args: any[]) {
 export class ZWaveService {
 
 	private static instance: ZWaveService;
-	constructor(private _mqtt: MqttClient, private _config: Config) {
+	constructor(private _mqtt: MqttClient) {
 		this.zwave = new ZWave({
 			UserPath: './zwave',
 			ConfigPath: './zwave/db',
@@ -40,14 +41,15 @@ export class ZWaveService {
 		});
 	}
 
-	static getInstance(_mqtt: MqttClient, _config: Config) {
+	static getInstance(_mqtt: MqttClient) {
 		if (!ZWaveService.instance) {
-			ZWaveService.instance = new ZWaveService(_mqtt, _config);
+			ZWaveService.instance = new ZWaveService(_mqtt);
 		}
 		return ZWaveService.instance;
 	}
 
 	private zwave: ZWave;
+	private _config: ZWaveConfigItem = ZWaveConfigService.getConfig();
 	private ns: string = ""; // mqtt namespace / topic
 	private is_driver_connected: boolean = false;
 	private is_driver_ready: boolean = false;
@@ -57,22 +59,31 @@ export class ZWaveService {
 
 	private tracelogger: TraceLogger = TraceLogger.getInstance('zwavemqtt');
 
-	startup(): void {
+	startup(): boolean {
 		// attempt to connect device. We are expecting this to work, given we
 		// assume the caller has done all the preparations to check whether this
 		// is going to work or not.
 		// In the grand scheme of things, we should probably do the checking
 		// here, but we're going with the status quo for now.
 		logger.info("startup...");
-		this.zwave.connect(this._config.zwave.device);
-		this.ns = this._config.zwave.namespace;
+
+		// obtain the config again, because it might have changed since we
+		// started up.
+		if (!ZWaveConfigService.isConfigured()) {
+			logger.error("zwave not configured; won't start up");
+			return false;
+		}
+		this._config = ZWaveConfigService.getConfig();
+		this.zwave.connect(this._config.device);
+		this.ns = this._config.namespace;
 		this._setupHandlers();
+		return true;
 	}
 
 	shutdown(): void {
 		logger.info("shutdown...");
 		if (this.is_driver_connected) {
-			this.zwave.disconnect(this._config.zwave.device);
+			this.zwave.disconnect(this._config.device);
 		}
 		this.is_driver_connected = false;
 		this.is_driver_ready = false;

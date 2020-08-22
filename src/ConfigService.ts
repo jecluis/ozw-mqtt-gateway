@@ -7,11 +7,9 @@
  * the European Comission.
  */
 import fs from 'fs';
+import { ZWaveConfigItem } from './ZWaveConfigService';
 
-interface ZWaveConfig {
-	device: string;
-	namespace: string;
-}
+
 
 interface HTTPServerConfig {
 	host: string;
@@ -25,7 +23,7 @@ interface MQTTConfig {
 
 export interface Config {
 	http_server: HTTPServerConfig;
-	zwave: ZWaveConfig;
+	zwave: ZWaveConfigItem;
 	mqtt: MQTTConfig;
 }
 
@@ -75,19 +73,6 @@ export class ConfigService {
 
 	setConfig(conf: Config): void {
 		this.config = conf;
-	}
-
-	getAvailableDevices(): string[] {
-
-		let candidates: string[] = [];
-		let dev_contents = fs.readdirSync('/dev');
-		dev_contents.forEach( (node) => {
-			if (node.startsWith('ttyACM') ||
-				node.startsWith('ttyUSB')) {
-				candidates.push(node);
-			}
-		});
-		return candidates;
 	}
 
 }

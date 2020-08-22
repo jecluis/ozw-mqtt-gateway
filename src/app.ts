@@ -7,11 +7,11 @@
  * the European Comission.
  */
 import mqtt, { MqttClient } from 'mqtt';
-import ZWave from 'openzwave-shared';
-import { ConfigService, Config } from './ConfigService';
 import { Logger } from 'tslog';
 import { ENOENT, EINVAL } from 'constants';
 import fs from 'fs';
+
+import { ConfigService, Config } from './ConfigService';
 import { ZWaveService } from './ZWaveService';
 
 
@@ -42,38 +42,27 @@ let config: Config = configSvc.getConfig();
  */
 let zwave_device: string = "";
 
-function findDevice(): string {
-	let available_devices: string[] = configSvc.getAvailableDevices();
-	logger.info("\navailable devices: ", available_devices);
-	if (available_devices.length == 0) {
-		return "";
-	}
-	let device: string = available_devices[0];
-	if (!device.startsWith('/dev/')) {
-		device = '/dev/'+device;
-	}
-	return device;
-}
 
-if (!config.zwave.device) {
-	// try to find a device from '/dev/'
-	zwave_device = findDevice();
-	if (!zwave_device) {
-		logger.error("we don't have a zwave device configured; exit");
-		process.exit(EINVAL);
-	}
-} else {
-	zwave_device = config.zwave.device;
-	if (!fs.existsSync(zwave_device)) {
-		logger.error(`zwave device '${zwave_device}' does not exist`);
-		process.exit(ENOENT);
-	}
-}
+
+// if (!config.zwave.device) {
+// 	// try to find a device from '/dev/'
+// 	zwave_device = findDevice();
+// 	if (!zwave_device) {
+// 		logger.error("we don't have a zwave device configured; exit");
+// 		process.exit(EINVAL);
+// 	}
+// } else {
+// 	zwave_device = config.zwave.device;
+// 	if (!fs.existsSync(zwave_device)) {
+// 		logger.error(`zwave device '${zwave_device}' does not exist`);
+// 		process.exit(ENOENT);
+// 	}
+// }
 
 // ensure our config has the zwave device set. This value might have very well
 // have come from the config itself, but we don't particularly care because it
 // might have not.
-config.zwave.device = zwave_device;
+// config.zwave.device = zwave_device;
 
 // we are only going to setup our zwave service once we got everything in place.
 // There is little point in having the zwave service if we don't have an mqtt
@@ -151,10 +140,19 @@ process.on('SIGINT', () => {
 	shutdown();
 });
 
-function startup() {
+async function startup() {
+
 	// setup zwave service
-	zwave = ZWaveService.getInstance(mqtt_client, config);
-	zwave.startup();
+	zwave = ZWaveService.getInstance(mqtt_client);
+
+	let backoff: number = 1;
+	let backoff_factor: number = 2;
+
+	while (!zwave.startup()) {
+		logger.warn(`unable to startup zwave; backoff for ${backoff} seconds`);
+		await sleep(1000*backoff);
+		backoff *= backoff_factor;
+	}
 }
 
 
