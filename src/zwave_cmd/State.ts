@@ -12,7 +12,7 @@ import { CommandEnum } from './types';
 import { ZWaveService } from '../ZWaveService';
 import { DataStore } from '../DataStore';
 
-let logger: Logger = new Logger({name: 'device-add'});
+let logger: Logger = new Logger({name: 'get-state'});
 
 export class GetLatestState extends Command {
 
