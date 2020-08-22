@@ -172,6 +172,10 @@ export class ZWaveConfigService {
 			return;
 		}
 		let nonce: string = data['nonce'];
+		let force: boolean = false;
+		if ('force' in data) {
+			force = data['force'];
+		}
 		if (!('config' in data)) {
 			// payload does not contain a config to set; complain.
 			logger.warn("payload does not provide a config.")
@@ -199,7 +203,7 @@ export class ZWaveConfigService {
 			});
 			return;
 		}
-		if (!fs.existsSync(config_device)) {
+		if (!fs.existsSync(config_device) && !force) {
 			logger.warn(`specified device '${config_device}' does not exist`);
 			this.reply("set/result", {
 				rc: -ENOENT,
@@ -212,7 +216,7 @@ export class ZWaveConfigService {
 		if ('namespace' in config) {
 			config_ns = config['namespace'];
 		}
-		if (config_ns === "") {
+		if (config_ns === "" && !force) {
 			logger.warn("empty namespace provided; abort.");
 			this.reply("set/result", {
 				rc: -EINVAL,
