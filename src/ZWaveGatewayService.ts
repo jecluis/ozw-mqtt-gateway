@@ -145,14 +145,26 @@ export class ZWaveGatewayService {
 
 	private _handleMessage(topic: string, payload: Buffer, packet: Packet) {
 		let gwtopic: string = this.mqtt_topic;
-		if (topic == gwtopic+"/config/set/request") {
-			this._handleConfigSet(payload);
-		} else if (topic == gwtopic+"/config/get/request") {
-			this._handleConfigGet(payload);
-		} else if (topic == gwtopic+"/network/start/request") {
-			this._handleNetworkStart(payload);
-		} else if (topic == gwtopic+"/network/stop/request") {
-			this._handleNetworkStop(payload);
+
+		if (topic.startsWith(gwtopic) && !topic.endsWith("/request")) {
+			return; // ignore anything not a request.
+		}
+
+		let data = JSON.parse(payload.toString());
+		// logger.debug("handle message: ", data);
+		if (!('nonce' in data) || data['nonce'] === "") {
+			logger.warn(`payload for ${topic} does not define a nonce; drop.`);
+			return;
+		}
+		let nonce = data['nonce'];
+		if (topic === gwtopic+"/config/set/request") {
+			this._handleConfigSet(data, nonce);
+		} else if (topic === gwtopic+"/config/get/request") {
+			this._handleConfigGet(data, nonce);
+		} else if (topic === gwtopic+"/network/start/request") {
+			this._handleNetworkStart(data, nonce);
+		} else if (topic === gwtopic+"/network/stop/request") {
+			this._handleNetworkStop(data, nonce);
 		} else {
 			// unknown topic, drop.
 			return;
@@ -178,13 +190,7 @@ export class ZWaveGatewayService {
 	 * 	  "config": { "device": "/dev/ttyACM0", "namespace": "ozw"}
 	 *  }
 	 */
-	private _handleConfigSet(payload: Buffer) {
-		let data = JSON.parse(payload.toString());
-		if (!('nonce' in data)) {
-			logger.warn("payload does not specify a nonce; drop.");
-			return;
-		}
-		let nonce: string = data['nonce'];
+	private _handleConfigSet(data: {[id: string]: any}, nonce: string) {
 		let force: boolean = false;
 		if ('force' in data) {
 			force = data['force'];
@@ -267,13 +273,7 @@ export class ZWaveGatewayService {
 	 * 		"nonce": "aaaaa"
 	 * 	}
 	 */
-	private _handleConfigGet(payload: Buffer) {
-		let data = JSON.parse(payload.toString());
-		if (!('nonce' in data)) {
-			logger.warn("payload does not specify a nonce; drop.");
-			return;
-		}
-		let nonce: string = data['nonce'];
+	private _handleConfigGet(data: {[id: string]: any}, nonce: string) {
 		let config: {[id: string]: any} = this.config;
 		// append available devices
 		config['available_devices'] = this.getDevices();
@@ -285,15 +285,8 @@ export class ZWaveGatewayService {
 		});
 	}
 
-	private _handleNetworkStart(payload: Buffer) {
+	private _handleNetworkStart(data: {[id: string]: any}, nonce: string) {
 		logger.info("handling network start request");
-		let data = JSON.parse(payload.toString());
-		if (!('nonce' in data)) {
-			logger.warn("payload does not specify a nonce; drop.");
-			return;
-		}
-		let nonce: string = data['nonce'];
-
 		let retstr = "network successfully started";
 		let svc: ZWaveService = ZWaveService.getInstance();
 		if (svc.isDriverConnected()) {
@@ -322,14 +315,7 @@ export class ZWaveGatewayService {
 		});
 	}
 
-	private _handleNetworkStop(payload: Buffer) {
-		let data = JSON.parse(payload.toString());
-		if (!('nonce' in data)) {
-			logger.warn("payload does not specify a nonce; drop.");
-			return;
-		}
-		let nonce: string = data['nonce'];
-
+	private _handleNetworkStop(data: {[id: string]: any}, nonce: string) {
 		let retstr = "network successfully stopped";
 		let svc: ZWaveService = ZWaveService.getInstance();
 		if (!svc.isDriverConnected()) {
