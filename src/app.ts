@@ -155,11 +155,14 @@ async function startup() {
 	let backoff: number = 1;
 	let backoff_factor: number = 2;
 
+	logger.info("zwave service setup, waiting to start");
+	/* XXX: this is dead code; we're keeping it for now, remove in the future.
 	while (!zwave.startup()) {
 		logger.warn(`unable to startup zwave; backoff for ${backoff} seconds`);
 		await sleep(1000*backoff);
 		backoff *= backoff_factor;
 	}
+	*/
 }
 
 
