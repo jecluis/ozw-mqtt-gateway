@@ -56,6 +56,7 @@ class MQTTClient:
 				f"mqtt > error connecting (rc = {rc}")
 			self.buffer.newline()
 		client.subscribe("ozw/#")
+		client.subscribe("ozw-mqtt-gateway/zwave/#")
 
 
 	def on_message(self, client, userdata, msg):
@@ -107,6 +108,58 @@ class MQTTClient:
 				'command': 18, # get state
 				'nonce': self.get_random_str()
 			}
+		elif cmd == "config":
+			assert len(cmd_args) > 0
+			subcmd = cmd_args[0]
+			if subcmd == "get":
+				action = {
+					'nonce': self.get_random_str()
+				}
+				self.client.publish(
+					"ozw-mqtt-gateway/zwave/config/get/request",
+					json.dumps(action))
+				return
+			elif subcmd == "set":
+				args = cmd_args[1:]
+				if len(args) < 4:
+					self.buffer.insert_text(
+						"usage: config set device <dev> namespace <ns> [force]")
+					self.buffer.newline()
+					return
+				dev = args[1]
+				ns = args[3]
+
+				force = False
+				if len(args) == 5 and args[4] == "force":
+					force = True
+
+				action = {
+					'nonce': self.get_random_str(),
+					'config': {
+						'device': dev,
+						'namespace': ns
+					},
+					'force': force
+				}
+
+				self.client.publish(
+					"ozw-mqtt-gateway/zwave/config/set/request",
+					json.dumps(action))
+				return
+		elif cmd == "network":
+			if len(cmd_args) == 0 or \
+			   (cmd_args[0] != "start" and cmd_args[0] != "stop"):
+				self.buffer.insert_text("usage: network <start|stop>")
+				self.buffer.newline()
+				return
+			topic = f"network/{cmd_args[0]}"
+			action = {
+				'nonce': self.get_random_str(),
+			}
+			self.client.publish(
+				f"ozw-mqtt-gateway/zwave/{topic}/request",
+				json.dumps(action))
+			return
 		else:
 			self.buffer.insert_text(f"-> unknown command '{cmd}'")
 			self.buffer.newline()
