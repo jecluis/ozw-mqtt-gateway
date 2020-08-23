@@ -21,7 +21,6 @@ import { CommandEnum, CommandState } from './zwave_cmd/types';
 import { DataStore } from './DataStore';
 import { GetLatestState } from './zwave_cmd/State';
 import { ZWaveConfigItem, ZWaveGatewayService } from './ZWaveGatewayService';
-import { NetworkStateCommand } from './zwave_cmd/NetworkStateCommand';
 
 let logger: Logger = new Logger({name: 'zwave'});
 
