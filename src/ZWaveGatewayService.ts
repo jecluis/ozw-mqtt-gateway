@@ -165,6 +165,8 @@ export class ZWaveGatewayService {
 			this._handleNetworkStart(data, nonce);
 		} else if (topic === gwtopic+"/network/stop/request") {
 			this._handleNetworkStop(data, nonce);
+		} else if (topic === gwtopic+"/network/status/request") {
+			this._handleNetworkStatus(data, nonce);
 		} else {
 			// unknown topic, drop.
 			return;
@@ -333,6 +335,27 @@ export class ZWaveGatewayService {
 			rc: 0,
 			str: retstr,
 			nonce: nonce
+		});
+	}
+
+	private _handleNetworkStatus(data: {[id: string]: any}, nonce: string) {
+		let svc: ZWaveService = ZWaveService.getInstance();
+		let status = {
+			is_connected: svc.isDriverConnected(),
+			is_ready: svc.isDriverReady(),
+			is_failed: svc.isDriverFailed(),
+		};
+		let retstate: string[] = []
+		if (status.is_connected) { retstate.push("connected"); }
+		if (status.is_ready) { retstate.push("ready"); }
+		if (status.is_failed) { retstate.push("failed"); }
+		let retstr = retstate.join(',');
+		if (retstr === "") { retstr = "stopped"; }
+		this.reply("network/status/result", {
+			rc: 0,
+			str: retstr,
+			nonce: nonce,
+			status: status
 		});
 	}
 }

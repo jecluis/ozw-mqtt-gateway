@@ -147,9 +147,10 @@ class MQTTClient:
 					json.dumps(action))
 				return
 		elif cmd == "network":
-			if len(cmd_args) == 0 or \
-			   (cmd_args[0] != "start" and cmd_args[0] != "stop"):
-				self.buffer.insert_text("usage: network <start|stop>")
+			allowed_cmds = ["start", "stop", "status"]
+			if len(cmd_args) == 0 or cmd_args[0] not in allowed_cmds:
+				allowed_str = "|".join(allowed_cmds)
+				self.buffer.insert_text(f"usage: network <{allowed_str}>")
 				self.buffer.newline()
 				return
 			topic = f"network/{cmd_args[0]}"
