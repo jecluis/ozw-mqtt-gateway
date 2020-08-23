@@ -276,6 +276,7 @@ export class ZWaveService {
 
 	private _handleDriverReady(homeId: number) {
 		info("driver", "ready");
+		this.is_driver_connected = true;
 		this.is_driver_ready = true;
 		this.is_driver_failed = false;
 
