@@ -149,7 +149,8 @@ async function startup() {
 		uri: mqtt_server_uri
 	});
 	// setup zwave service
-	zwave = ZWaveService.getInstance(mqtt_client);
+	zwave = ZWaveService.getInstance();
+	zwave.setup(mqtt_client);
 
 	let backoff: number = 1;
 	let backoff_factor: number = 2;

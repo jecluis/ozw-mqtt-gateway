@@ -32,7 +32,7 @@ function info(where: string, ...args: any[]) {
 export class ZWaveService {
 
 	private static instance: ZWaveService;
-	constructor(private _mqtt: MqttClient) {
+	constructor() {
 		this.zwave = new ZWave({
 			UserPath: './zwave',
 			ConfigPath: './zwave/db',
@@ -41,13 +41,14 @@ export class ZWaveService {
 		});
 	}
 
-	static getInstance(_mqtt: MqttClient) {
+	static getInstance(): ZWaveService {
 		if (!ZWaveService.instance) {
-			ZWaveService.instance = new ZWaveService(_mqtt);
+			ZWaveService.instance = new ZWaveService();
 		}
 		return ZWaveService.instance;
 	}
 
+	private mqtt: MqttClient|undefined = undefined;
 	private zwave: ZWave;
 	private _config: ZWaveConfigItem = ZWaveConfigService.getConfig();
 	private ns: string = ""; // mqtt namespace / topic
@@ -59,7 +60,16 @@ export class ZWaveService {
 
 	private tracelogger: TraceLogger = TraceLogger.getInstance('zwavemqtt');
 
-	startup(): boolean {
+	setup(mqtt: MqttClient): void {
+		logger.info("setting up");
+		if (!!this.mqtt) {
+			logger.error("trying to setup class multiple times.");
+			throw Error("can't setup class multiple times");
+		}
+		this.mqtt = mqtt;
+	}
+
+	startup(): number {
 		// attempt to connect device. We are expecting this to work, given we
 		// assume the caller has done all the preparations to check whether this
 		// is going to work or not.
@@ -109,7 +119,7 @@ export class ZWaveService {
 
 		let logstr = JSON.stringify({topic: ns, payload: what});
 		this.tracelogger.trace(logstr);
-		this._mqtt.publish(ns, payload);
+		this.mqtt?.publish(ns, payload);
 	}
 
 	getDriver(): ZWave {
@@ -143,8 +153,8 @@ export class ZWaveService {
 		this.zwave.on("scan complete", this._handleScanCompleted.bind(this));
 		this.zwave.on("controller command", this._handleCommand.bind(this));
 
-		this._mqtt.on("message", this._handleMQTTMessage.bind(this));
-		this._mqtt.subscribe(this.ns+'/action/request');
+		this.mqtt?.on("message", this._handleMQTTMessage.bind(this));
+		this.mqtt?.subscribe(this.ns+'/action/request');
 	}
 
 	/*
