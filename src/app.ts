@@ -13,7 +13,7 @@ import fs from 'fs';
 
 import { ConfigService, Config } from './ConfigService';
 import { ZWaveService } from './ZWaveService';
-import { ZWaveConfigService } from './ZWaveConfigService';
+import { ZWaveGatewayService } from './ZWaveGatewayService';
 
 
 let logger: Logger = new Logger({name: 'ozw-mqtt-gateway'});
@@ -144,7 +144,7 @@ process.on('SIGINT', () => {
 async function startup() {
 
 	// setup zwave config service
-	let zwave_cfg = ZWaveConfigService.getInstance();
+	let zwave_cfg = ZWaveGatewayService.getInstance();
 	zwave_cfg.setup({
 		uri: mqtt_server_uri
 	});

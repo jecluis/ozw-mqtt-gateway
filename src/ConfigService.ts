@@ -7,7 +7,7 @@
  * the European Comission.
  */
 import fs from 'fs';
-import { ZWaveConfigItem } from './ZWaveConfigService';
+import { ZWaveConfigItem } from './ZWaveGatewayService';
 
 
 

@@ -10,9 +10,9 @@ import ZWave, {
 	NodeInfo, Notification, Value, ControllerState, ControllerError
 } from 'openzwave-shared';
 import { MqttClient, Packet } from 'mqtt';
-import { Config, TraceLogger } from './ConfigService';
+import { TraceLogger } from './ConfigService';
 import { Logger } from 'tslog';
-import { EINVAL, ENOENT, ENOTSUP } from 'constants';
+import { EINVAL, ENOENT, ENOTSUP, EACCES } from 'constants';
 import { DeviceAddCommand } from './zwave_cmd/DeviceAdd';
 import { DeviceRemoveCommand } from './zwave_cmd/DeviceRemove';
 import { CommandQueue } from './zwave_cmd/CommandQueue';
@@ -20,8 +20,8 @@ import { Command, CancelCommand } from './zwave_cmd/Command';
 import { CommandEnum, CommandState } from './zwave_cmd/types';
 import { DataStore } from './DataStore';
 import { GetLatestState } from './zwave_cmd/State';
-import { ZWaveConfigItem, ZWaveConfigService } from './ZWaveConfigService';
-
+import { ZWaveConfigItem, ZWaveGatewayService } from './ZWaveGatewayService';
+import { NetworkStateCommand } from './zwave_cmd/NetworkStateCommand';
 
 let logger: Logger = new Logger({name: 'zwave'});
 
@@ -50,7 +50,7 @@ export class ZWaveService {
 
 	private mqtt: MqttClient|undefined = undefined;
 	private zwave: ZWave;
-	private _config: ZWaveConfigItem = ZWaveConfigService.getConfig();
+	private _config: ZWaveConfigItem = ZWaveGatewayService.getConfig();
 	private ns: string = ""; // mqtt namespace / topic
 	private is_driver_connected: boolean = false;
 	private is_driver_ready: boolean = false;
@@ -79,15 +79,21 @@ export class ZWaveService {
 
 		// obtain the config again, because it might have changed since we
 		// started up.
-		if (!ZWaveConfigService.isConfigured()) {
+		if (!ZWaveGatewayService.isConfigured()) {
 			logger.error("zwave not configured; won't start up");
-			return false;
+			return -EACCES;
 		}
-		this._config = ZWaveConfigService.getConfig();
+		this._config = ZWaveGatewayService.getConfig();
+
+		if (!ZWaveGatewayService.deviceExists()) {
+			logger.error(`zwave device '${this._config.device}' doesn't exist`);
+			return -ENOENT;
+		}
+
 		this.zwave.connect(this._config.device);
 		this.ns = this._config.namespace;
 		this._setupHandlers();
-		return true;
+		return 0;
 	}
 
 	shutdown(): void {
