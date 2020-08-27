@@ -326,7 +326,7 @@ export class ZWaveService {
 
 	private _handleNodeAvailable(nodeId: number, nodeInfo: NodeInfo) {
 		info("node available", `node ${nodeId}, info:`, nodeInfo);
-		this.publish("node/available", {id: nodeInfo, info: nodeInfo});
+		this.publish("node/available", {id: nodeId, info: nodeInfo});
 		this.datastore.setInfo(nodeId, nodeInfo);
 		this.datastore.setAvailable(nodeId);
 	}
