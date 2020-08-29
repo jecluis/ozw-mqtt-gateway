@@ -337,6 +337,20 @@ export class ZWaveService {
 		// no clue what to do about this one
 	}
 
+	private _handleNotification(
+        nodeId: number,
+        notification: Notification,
+        help: string) {
+    
+        info("notification", `node: ${nodeId}, notification:`, notification,
+             "help:", help);
+        this.publish("node/notification", {
+            id: nodeId,
+            notification: notification,
+            help: help
+        });
+    }
+
 	/*
 	 * VALUE HANDLERS
 	 */
@@ -395,16 +409,6 @@ export class ZWaveService {
 		this.publish("db", {state: "ready"}); // ¯\_(ツ)_/¯
 	}
 
-	private _handleNotification(nodeId: number,
-								notification: Notification,
-								help: string) {
-		info("notification", `node: ${nodeId}, notification:`, notification,
-			 "help:", help);
-		this.publish("notification", {
-			id: nodeId,
-			notification: notification,
-			help: help});
-	}
 
 	private _handleScanCompleted() {
 		info("controller", "scan has been completed");
