@@ -307,7 +307,7 @@ export class ZWaveService {
 
 	private _handleNodeRemove(nodeId: number) {
 		info("node remove", `node ${nodeId}`);
-		this.publish("node/rm", {id: nodeId});
+		this.publish("node/remove", {id: nodeId});
 		this.datastore.rmNode(nodeId);
 	}
 
