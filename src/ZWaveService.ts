@@ -120,11 +120,12 @@ export class ZWaveService {
 
 	publish(who: string, what: any): void {
 		let ns = this.ns + '/' + who;
-		let payload = JSON.stringify({ payload: what });
-
-		let logstr = JSON.stringify({topic: ns, payload: what});
+		let ts = new Date().getTime();
+		let payload = {payload: what, timestamp: ts};
+		let payloadstr = JSON.stringify({payload: what, timestamp: ts});
+		let logstr = JSON.stringify({topic: ns, payload: payload});
 		this.tracelogger.trace(logstr);
-		this.mqtt?.publish(ns, payload);
+		this.mqtt?.publish(ns, payloadstr);
 	}
 
 	getDriver(): ZWave {
